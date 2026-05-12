@@ -231,7 +231,7 @@ jobs:
   publish-release:
     name: Publish Release
     if: needs.version.outputs.is_release == 'true'
-    needs: [version, create-release, build-wheels]
+    needs: [version, build-wheels]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
