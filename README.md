@@ -20,7 +20,8 @@ browser = servofetch.Browser(timeout=30.0, settle_ms=500)
 
 page = browser.go("https://example.com")
 print(page.title)
-print(page.markdown("https://example.com"))
+print(page.markdown())
+print(page.select_markdown("main"))
 ```
 
 ```python
@@ -38,12 +39,17 @@ asyncio.run(main())
 ## API
 
 - `Browser.go(url, ...) -> Page`
-- `Browser.markdown(url, ...) -> str`
-- `Browser.text(url, ...) -> str`
-- `Browser.extract_json(url, ...) -> str`
+- `Browser.fetch(url, ...) -> Page`
+- `Browser.markdown(url, ..., selector=None, javascript=None) -> str`
+- `Browser.text(url, ..., javascript=None) -> str`
+- `Browser.extract_json(url, ..., selector=None, javascript=None) -> str`
 - `Browser.screenshot(url, ..., filename=None) -> Page`
+- `Browser.map(url, ..., include=None, exclude=None) -> list[MappedUrl]`
+- `Browser.crawl(url, ..., selector=None, json=False) -> list[CrawlResult]`
 - `AsyncBrowser` provides awaitable versions of the same methods.
 
-Pass `filename="page.png"` to `screenshot` to write the captured PNG while still receiving the returned `Page`.
+Returned `Page` objects keep their source URL, so `page.markdown()` and `page.extract_json()` resolve relative links against the fetched page by default. Pass `url="..."` only when you need to override that base URL. Use `page.text()`, `page.select_markdown(selector)`, or `page.select_json(selector)` to extract from an already-fetched page. Page metadata includes `html_len`, `text_len`, `has_layout`, `has_accessibility_tree`, `console_error_count`, `has_screenshot`, and `screenshot_len`.
+
+Pass `filename="page.png"` to `screenshot` to write the captured PNG while still receiving the returned `Page`. A screenshot `Page` also exposes `page.screenshot_png`, `page.has_screenshot`, and `page.save_screenshot(filename)`.
 
 Private and local network addresses are blocked by default. Pass `allow_private_addresses=True` when constructing the first browser instance to allow them for the current process.
