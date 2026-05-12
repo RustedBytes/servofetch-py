@@ -42,9 +42,9 @@ jobs:
           fi
 
   build-wheels:
-    name: Build ${{ matrix.python-version }} / ${{ matrix.target }}
+    name: Build ${{ matrix.python-version }}
     needs: [version]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -54,40 +54,13 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        platform:
-          - linux-x86_64
-          # - linux-aarch64
-          # - macos-aarch64
-          # - macos-x86_64
-          # - windows-x86_64
-        include:
-          - platform: linux-x86_64
-            target: x86_64-unknown-linux-gnu
-            os: ubuntu-24.04
-            artifact: wheels-linux-x86_64
-          - platform: linux-aarch64
-            target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
-            artifact: wheels-linux-aarch64
-          - platform: macos-aarch64
-            target: aarch64-apple-darwin
-            os: macos-latest
-            artifact: wheels-macos-aarch64
-          - platform: macos-x86_64
-            target: x86_64-apple-darwin
-            os: macos-15-intel
-            artifact: wheels-macos-x86_64
-          - platform: windows-x86_64
-            target: x86_64-pc-windows-msvc
-            os: windows-2022
-            artifact: wheels-windows-x86_64
     env:
       RUST_BACKTRACE: 1
       CARGO_INCREMENTAL: 0
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: sccache
       CCACHE: sccache
-      TARGET: ${{ matrix.target }}
+      TARGET: x86_64-unknown-linux-gnu
       VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -97,7 +70,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: "1.95.0"
-          targets: ${{ matrix.target }}
+          targets: x86_64-unknown-linux-gnu
 
       - uses: actions/setup-python@v6
         with:
@@ -115,81 +88,17 @@ jobs:
             xvfb libegl1 libgles2 libgl1-mesa-dri mesa-utils \
             libfontconfig1 libfreetype6 libharfbuzz0b libx11-6 libxcb1 libxcb-render0 libxcb-shape0 libxcb-xfixes0
 
-      - name: Set LIBCLANG_PATH (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: printf 'LIBCLANG_PATH=C:\\Program Files\\LLVM\\bin\n' >> "$GITHUB_ENV"
-
       - name: Install maturin
         shell: bash
         run: |
           python -m pip install --upgrade pip
           python -m pip install "maturin>=1.13,<2"
 
-      - name: Build wheel (Linux)
-        if: runner.os == 'Linux'
+      - name: Build wheel
         shell: bash
         run: |
           python -m maturin build --release --locked --target "$TARGET" \
             --interpreter python --out dist --compatibility linux
-
-      - name: Build wheel (macOS and Windows)
-        if: runner.os != 'Linux'
-        shell: bash
-        run: |
-          python -m maturin build --release --locked --target "$TARGET" \
-            --interpreter python --out dist
-
-      - name: Bundle Windows ANGLE DLLs into wheels
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s failglob
-          python - <<'PY'
-          import base64
-          import csv
-          import hashlib
-          import pathlib
-          import shutil
-          import tempfile
-          import zipfile
-
-          root = pathlib.Path.cwd()
-          dlls = []
-          for name in ("libEGL.dll", "libGLESv2.dll"):
-              matches = list((root / "target").glob(f"**/build/mozangle-*/out/{name}"))
-              if not matches:
-                  raise SystemExit(f"missing {name}")
-              dlls.append(matches[0])
-
-          for wheel in (root / "dist").glob("*.whl"):
-              with tempfile.TemporaryDirectory() as tmp:
-                  tmp = pathlib.Path(tmp)
-                  with zipfile.ZipFile(wheel) as zf:
-                      zf.extractall(tmp)
-                  for dll in dlls:
-                      shutil.copy2(dll, tmp / dll.name)
-
-                  record = next(tmp.glob("*.dist-info/RECORD"))
-                  rows = []
-                  for path in sorted(p for p in tmp.rglob("*") if p.is_file()):
-                      rel = path.relative_to(tmp).as_posix()
-                      if path == record:
-                          rows.append([rel, "", ""])
-                          continue
-                      digest = base64.urlsafe_b64encode(hashlib.sha256(path.read_bytes()).digest()).rstrip(b"=").decode()
-                      rows.append([rel, f"sha256={digest}", str(path.stat().st_size)])
-
-                  with record.open("w", newline="") as f:
-                      csv.writer(f).writerows(rows)
-
-                  rebuilt = wheel.with_suffix(".tmp.whl")
-                  with zipfile.ZipFile(rebuilt, "w", zipfile.ZIP_DEFLATED) as zf:
-                      for path in sorted(p for p in tmp.rglob("*") if p.is_file()):
-                          zf.write(path, path.relative_to(tmp).as_posix())
-                  rebuilt.replace(wheel)
-          PY
 
       - name: Smoke test wheel import
         shell: bash
@@ -223,7 +132,7 @@ jobs:
       - name: Upload wheel artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.artifact }}-py${{ matrix.python-version }}
+          name: wheels-linux-x86_64-py${{ matrix.python-version }}
           path: dist/*.whl
           if-no-files-found: error
           retention-days: 7
