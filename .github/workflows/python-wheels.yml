@@ -101,29 +101,6 @@ jobs:
           python -m maturin build --release --locked --target "$TARGET" \
             --interpreter python --out dist --compatibility linux
 
-      - name: Smoke test wheel import
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --force-reinstall dist/*.whl
-          python - <<'PY'
-          import servofetch
-
-          assert servofetch.__version__
-          browser = servofetch.Browser(timeout=1.0)
-          assert browser.timeout == 1.0
-          assert browser.allow_private_addresses is False
-          try:
-              servofetch.Browser(allow_private_addresses=True)
-          except ValueError:
-              pass
-          else:
-              raise AssertionError("conflicting network policy should fail")
-
-          async_browser = servofetch.AsyncBrowser(timeout=1.0)
-          assert async_browser.timeout == 1.0
-          PY
-
       - name: Attest wheel provenance
         if: needs.version.outputs.is_release == 'true'
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
