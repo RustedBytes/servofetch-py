@@ -7143,6 +7143,7 @@ version = "0.1.1"
 dependencies = [
  "pyo3",
  "pyo3-async-runtimes",
+ "servo-allocator",
  "servo-fetch",
  "tokio",
 ]

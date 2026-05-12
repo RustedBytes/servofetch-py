@@ -11,4 +11,5 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.28", features = ["extension-module"] }
 pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
 servo-fetch = "0.9.1"
+servo-allocator = { version = "0.1.0", features = ["use-system-allocator"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
