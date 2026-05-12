@@ -1,3 +1,4 @@
+use std::fs;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -216,7 +217,7 @@ impl Browser {
         )
     }
 
-    #[pyo3(signature = (url, *, full_page = true, timeout = None, settle_ms = None, user_agent = None))]
+    #[pyo3(signature = (url, *, full_page = true, timeout = None, settle_ms = None, user_agent = None, filename = None))]
     fn screenshot(
         &self,
         url: &str,
@@ -224,8 +225,9 @@ impl Browser {
         timeout: Option<f64>,
         settle_ms: Option<u64>,
         user_agent: Option<String>,
+        filename: Option<String>,
     ) -> PyResult<Page> {
-        fetch_page(
+        let page = fetch_page(
             &self.config,
             FetchRequest {
                 url,
@@ -234,7 +236,9 @@ impl Browser {
                 user_agent,
                 mode: FetchMode::Screenshot { full_page },
             },
-        )
+        )?;
+        write_screenshot_file(&page, filename.as_deref())?;
+        Ok(page)
     }
 
     #[pyo3(signature = (url, *, timeout = None, settle_ms = None, user_agent = None))]
@@ -359,7 +363,7 @@ impl AsyncBrowser {
         })
     }
 
-    #[pyo3(signature = (url, *, full_page = true, timeout = None, settle_ms = None, user_agent = None))]
+    #[pyo3(signature = (url, *, full_page = true, timeout = None, settle_ms = None, user_agent = None, filename = None))]
     fn screenshot<'py>(
         &self,
         py: Python<'py>,
@@ -368,11 +372,12 @@ impl AsyncBrowser {
         timeout: Option<f64>,
         settle_ms: Option<u64>,
         user_agent: Option<String>,
+        filename: Option<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let config = self.config.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
             tokio::task::spawn_blocking(move || {
-                fetch_page(
+                let page = fetch_page(
                     &config,
                     FetchRequest {
                         url: &url,
@@ -381,7 +386,9 @@ impl AsyncBrowser {
                         user_agent,
                         mode: FetchMode::Screenshot { full_page },
                     },
-                )
+                )?;
+                write_screenshot_file(&page, filename.as_deref())?;
+                Ok(page)
             })
             .await
             .map_err(|err| PyRuntimeError::new_err(err.to_string()))?
@@ -521,6 +528,20 @@ fn fetch_page(config: &BrowserConfig, request: FetchRequest<'_>) -> PyResult<Pag
     servo_fetch::fetch(options)
         .map(Page::from_servo)
         .map_err(map_error)
+}
+
+fn write_screenshot_file(page: &Page, filename: Option<&str>) -> PyResult<()> {
+    let Some(filename) = filename else {
+        return Ok(());
+    };
+
+    let bytes = page
+        .screenshot_png
+        .as_deref()
+        .ok_or_else(|| PyRuntimeError::new_err("screenshot did not produce PNG data"))?;
+
+    fs::write(filename, bytes)
+        .map_err(|err| PyOSError::new_err(format!("failed to write screenshot to {filename:?}: {err}")))
 }
 
 fn ensure_network_policy(allow_private_addresses: bool) -> PyResult<()> {

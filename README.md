@@ -41,7 +41,9 @@ asyncio.run(main())
 - `Browser.markdown(url, ...) -> str`
 - `Browser.text(url, ...) -> str`
 - `Browser.extract_json(url, ...) -> str`
-- `Browser.screenshot(url, ...) -> Page`
+- `Browser.screenshot(url, ..., filename=None) -> Page`
 - `AsyncBrowser` provides awaitable versions of the same methods.
+
+Pass `filename="page.png"` to `screenshot` to write the captured PNG while still receiving the returned `Page`.
 
 Private and local network addresses are blocked by default. Pass `allow_private_addresses=True` when constructing the first browser instance to allow them for the current process.
