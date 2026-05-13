@@ -15,6 +15,7 @@ include = [
     "README.md",
     "pyproject.toml",
     "src/**/*.rs",
+    "vendor/servo-net/**",
 ]
 
 [lib]
@@ -22,7 +23,11 @@ name = "servofetch"
 crate-type = ["cdylib"]
 
 [dependencies]
+net = { package = "servo-net", version = "0.1.0" }
 pyo3 = { version = "0.28", features = ["extension-module"] }
 pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
 servo-fetch = "0.9.1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
+
+[patch.crates-io]
+servo-net = { path = "vendor/servo-net" }

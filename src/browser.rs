@@ -4,6 +4,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
 use crate::errors::{ensure_network_policy, map_error, validate_timeout};
+use crate::onion::{DEFAULT_BOOTSTRAP, OnionConfig};
 use crate::page::{Page, write_screenshot_file};
 use crate::results::{CrawlResult, MappedUrl};
 
@@ -13,6 +14,7 @@ pub(crate) struct BrowserConfig {
     settle_ms: u64,
     user_agent: Option<String>,
     allow_private_addresses: bool,
+    onion: OnionConfig,
 }
 
 #[pyclass(module = "servofetch", frozen, skip_from_py_object)]
@@ -24,12 +26,16 @@ pub(crate) struct Browser {
 #[pymethods]
 impl Browser {
     #[new]
-    #[pyo3(signature = (timeout = 30.0, settle_ms = 0, user_agent = None, allow_private_addresses = false))]
+    #[pyo3(signature = (timeout = 30.0, settle_ms = 0, user_agent = None, allow_private_addresses = false, *, onion_bootstrap = None, onion_consensus_file = None, onion_verbose = false, onion_response_limit = 4 * 1024 * 1024))]
     fn new(
         timeout: f64,
         settle_ms: u64,
         user_agent: Option<String>,
         allow_private_addresses: bool,
+        onion_bootstrap: Option<String>,
+        onion_consensus_file: Option<String>,
+        onion_verbose: bool,
+        onion_response_limit: usize,
     ) -> PyResult<Self> {
         ensure_network_policy(allow_private_addresses)?;
         validate_timeout(timeout)?;
@@ -39,6 +45,13 @@ impl Browser {
                 settle_ms,
                 user_agent,
                 allow_private_addresses,
+                onion: OnionConfig::new(
+                    timeout,
+                    onion_bootstrap.unwrap_or_else(|| DEFAULT_BOOTSTRAP.to_string()),
+                    onion_consensus_file,
+                    onion_verbose,
+                    onion_response_limit,
+                )?,
             },
         })
     }
@@ -61,6 +74,26 @@ impl Browser {
     #[getter]
     fn allow_private_addresses(&self) -> bool {
         self.config.allow_private_addresses
+    }
+
+    #[getter]
+    fn onion_bootstrap(&self) -> String {
+        self.config.onion.bootstrap()
+    }
+
+    #[getter]
+    fn onion_consensus_file(&self) -> Option<String> {
+        self.config.onion.consensus_file()
+    }
+
+    #[getter]
+    fn onion_verbose(&self) -> bool {
+        self.config.onion.verbose()
+    }
+
+    #[getter]
+    fn onion_response_limit(&self) -> usize {
+        self.config.onion.response_limit()
     }
 
     #[pyo3(signature = (url, *, timeout = None, settle_ms = None, user_agent = None, javascript = None))]
@@ -233,12 +266,16 @@ pub(crate) struct AsyncBrowser {
 #[pymethods]
 impl AsyncBrowser {
     #[new]
-    #[pyo3(signature = (timeout = 30.0, settle_ms = 0, user_agent = None, allow_private_addresses = false))]
+    #[pyo3(signature = (timeout = 30.0, settle_ms = 0, user_agent = None, allow_private_addresses = false, *, onion_bootstrap = None, onion_consensus_file = None, onion_verbose = false, onion_response_limit = 4 * 1024 * 1024))]
     fn new(
         timeout: f64,
         settle_ms: u64,
         user_agent: Option<String>,
         allow_private_addresses: bool,
+        onion_bootstrap: Option<String>,
+        onion_consensus_file: Option<String>,
+        onion_verbose: bool,
+        onion_response_limit: usize,
     ) -> PyResult<Self> {
         ensure_network_policy(allow_private_addresses)?;
         validate_timeout(timeout)?;
@@ -248,6 +285,13 @@ impl AsyncBrowser {
                 settle_ms,
                 user_agent,
                 allow_private_addresses,
+                onion: OnionConfig::new(
+                    timeout,
+                    onion_bootstrap.unwrap_or_else(|| DEFAULT_BOOTSTRAP.to_string()),
+                    onion_consensus_file,
+                    onion_verbose,
+                    onion_response_limit,
+                )?,
             },
         })
     }
@@ -270,6 +314,26 @@ impl AsyncBrowser {
     #[getter]
     fn allow_private_addresses(&self) -> bool {
         self.config.allow_private_addresses
+    }
+
+    #[getter]
+    fn onion_bootstrap(&self) -> String {
+        self.config.onion.bootstrap()
+    }
+
+    #[getter]
+    fn onion_consensus_file(&self) -> Option<String> {
+        self.config.onion.consensus_file()
+    }
+
+    #[getter]
+    fn onion_verbose(&self) -> bool {
+        self.config.onion.verbose()
+    }
+
+    #[getter]
+    fn onion_response_limit(&self) -> usize {
+        self.config.onion.response_limit()
     }
 
     #[pyo3(signature = (url, *, timeout = None, settle_ms = None, user_agent = None, javascript = None))]
@@ -532,6 +596,7 @@ enum FetchMode {
 fn fetch_page(config: &BrowserConfig, request: FetchRequest<'_>) -> PyResult<Page> {
     let timeout = request.timeout.unwrap_or(config.timeout);
     validate_timeout(timeout)?;
+    let user_agent = request.user_agent.or_else(|| config.user_agent.clone());
 
     let mut options = match request.mode {
         FetchMode::Content {
@@ -547,7 +612,7 @@ fn fetch_page(config: &BrowserConfig, request: FetchRequest<'_>) -> PyResult<Pag
         request.settle_ms.unwrap_or(config.settle_ms),
     ));
 
-    if let Some(user_agent) = request.user_agent.or_else(|| config.user_agent.clone()) {
+    if let Some(user_agent) = user_agent {
         options = options.user_agent(user_agent);
     }
 
