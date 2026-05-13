@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
 use crate::errors::{ensure_network_policy, map_error, validate_timeout};
-use crate::onion::{DEFAULT_BOOTSTRAP, OnionConfig, fetch_onion_page, parse_onion_url};
+use crate::onion::{DEFAULT_BOOTSTRAP, OnionConfig};
 use crate::page::{Page, write_screenshot_file};
 use crate::results::{CrawlResult, MappedUrl};
 
@@ -597,22 +597,6 @@ fn fetch_page(config: &BrowserConfig, request: FetchRequest<'_>) -> PyResult<Pag
     let timeout = request.timeout.unwrap_or(config.timeout);
     validate_timeout(timeout)?;
     let user_agent = request.user_agent.or_else(|| config.user_agent.clone());
-
-    if let Some(onion_url) = parse_onion_url(request.url)? {
-        return match &request.mode {
-            FetchMode::Content { javascript: None } => {
-                fetch_onion_page(&config.onion, onion_url, timeout, user_agent.as_deref())
-            }
-            FetchMode::Content {
-                javascript: Some(_),
-            } => Err(PyValueError::new_err(
-                "javascript evaluation is not supported for .onion URLs through onionlink",
-            )),
-            FetchMode::Screenshot { .. } => Err(PyValueError::new_err(
-                "screenshots are not supported for .onion URLs through onionlink",
-            )),
-        };
-    }
 
     let mut options = match request.mode {
         FetchMode::Content {

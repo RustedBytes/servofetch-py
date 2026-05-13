@@ -36,7 +36,7 @@ async def main():
 asyncio.run(main())
 ```
 
-Onion-service HTTP pages are fetched through [`onionlink`](https://github.com/RustedBytes/onionlink-rs) automatically when the URL host ends in `.onion`:
+Onion-service HTTP pages are fetched inside Servo through [`onionlink`](https://github.com/RustedBytes/onionlink-rs) automatically when the URL host ends in `.onion`:
 
 ```python
 import servofetch
@@ -46,7 +46,7 @@ page = browser.fetch("http://archiveiya74codqgiixo33q62qlrqtkgmcitqx5u2oeqnmn5bp
 print(page.text())
 ```
 
-The onion backend supports raw `http://` onion content for `go`, `fetch`, `markdown`, `text`, and `extract_json`. JavaScript evaluation and screenshots are not supported for onion URLs because this path does not render through Servo.
+The onion backend is integrated below Servo's fetch pipeline, so page JavaScript and same-origin subresource requests can load through the onion transport. The backend supports `http://` onion URLs; `https://` onion URLs and streaming request bodies are not supported by the embedded onionlink transport.
 
 ## API
 
