@@ -36,6 +36,18 @@ async def main():
 asyncio.run(main())
 ```
 
+Onion-service HTTP pages are fetched through [`onionlink`](https://github.com/RustedBytes/onionlink-rs) automatically when the URL host ends in `.onion`:
+
+```python
+import servofetch
+
+browser = servofetch.Browser(timeout=30.0)
+page = browser.fetch("http://archiveiya74codqgiixo33q62qlrqtkgmcitqx5u2oeqnmn5bpcbiyd.onion/")
+print(page.text())
+```
+
+The onion backend supports raw `http://` onion content for `go`, `fetch`, `markdown`, `text`, and `extract_json`. JavaScript evaluation and screenshots are not supported for onion URLs because this path does not render through Servo.
+
 ## API
 
 - `Browser.go(url, ...) -> Page`
@@ -53,3 +65,5 @@ Returned `Page` objects keep their source URL, so `page.markdown()` and `page.ex
 Pass `filename="page.png"` to `screenshot` to write the captured PNG while still receiving the returned `Page`. A screenshot `Page` also exposes `page.screenshot_png`, `page.has_screenshot`, and `page.save_screenshot(filename)`.
 
 Private and local network addresses are blocked by default. Pass `allow_private_addresses=True` when constructing the first browser instance to allow them for the current process.
+
+Onion options can be set on `Browser` or `AsyncBrowser`: `onion_bootstrap`, `onion_consensus_file`, `onion_verbose`, and `onion_response_limit`. The default bootstrap endpoint is `128.31.0.39:9131`, matching onionlink.

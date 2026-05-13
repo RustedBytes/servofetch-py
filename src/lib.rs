@@ -1,5 +1,6 @@
 mod browser;
 mod errors;
+mod onion;
 mod page;
 mod results;
 

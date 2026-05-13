@@ -22,7 +22,10 @@ name = "servofetch"
 crate-type = ["cdylib"]
 
 [dependencies]
+dom_query = "0.26"
+onionlink-core = "0.1.2"
 pyo3 = { version = "0.28", features = ["extension-module"] }
 pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
 servo-fetch = "0.9.1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
+url = "2"

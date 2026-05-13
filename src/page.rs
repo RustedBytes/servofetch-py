@@ -76,6 +76,34 @@ impl Page {
         }
     }
 
+    pub(crate) fn from_html(url: String, html: String) -> Self {
+        let (title, mut inner_text) = {
+            let doc = dom_query::Document::from(html.as_str());
+            let text = doc.select("title").text().trim().to_string();
+            let title = if text.is_empty() { None } else { Some(text) };
+            let mut inner_text = doc.select("body").text().trim().to_string();
+            if inner_text.is_empty() {
+                inner_text = doc.select("html").text().trim().to_string();
+            }
+            (title, inner_text)
+        };
+        if inner_text.is_empty() && !looks_like_html(&html) {
+            inner_text = html.trim().to_string();
+        }
+
+        Self {
+            url,
+            html,
+            inner_text,
+            title,
+            layout_json: None,
+            js_result: None,
+            console_messages: Vec::new(),
+            accessibility_tree: None,
+            screenshot_png: None,
+        }
+    }
+
     fn extract_input<'a>(&'a self, url: Option<&'a str>) -> servo_fetch::extract::ExtractInput<'a> {
         let url = url.unwrap_or(&self.url);
         servo_fetch::extract::ExtractInput::new(&self.html, url)
@@ -100,6 +128,10 @@ impl Page {
         let input = self.extract_input(url).with_selector(selector);
         servo_fetch::extract::extract_json(&input).map_err(map_extract_error)
     }
+}
+
+fn looks_like_html(value: &str) -> bool {
+    value.contains('<') && value.contains('>')
 }
 
 #[pymethods]
