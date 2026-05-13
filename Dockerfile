@@ -54,4 +54,10 @@ COPY vendor ./vendor
 RUN python -m maturin build --release --locked --target "${TARGET}" \
         --interpreter python --out dist --compatibility linux
 
+FROM python:3.14-slim-bookworm AS wheel-artifact
+
+WORKDIR /workspace
+
+COPY --from=wheel-builder /workspace/dist ./dist
+
 CMD ["sh", "-c", "ls -lh /workspace/dist"]
